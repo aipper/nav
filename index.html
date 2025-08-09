@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的导航页 - 支持配置导入</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+            }
+            .bg-gradient-dark {
+                @apply bg-gradient-to-br from-dark to-slate-800;
+            }
+            .bg-gradient-light {
+                @apply bg-gradient-to-br from-light to-slate-200;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-dark min-h-screen text-white p-4 md:p-8 transition-colors duration-300">
+    <!-- 头部：时间、主题切换和搜索 -->
+    <header class="max-w-6xl mx-auto mb-8">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div id="clock" class="text-2xl md:text-4xl font-bold"></div>
+                <button id="theme-toggle" class="p-2 rounded-full hover:bg-slate-700 transition-colors">
+                    <i class="fa fa-moon-o"></i>
+                </button>
+            </div>
+            <div class="w-full md:w-1/2">
+                <div class="relative">
+                    <input type="text" id="search-input" 
+                        class="w-full px-4 py-3 rounded-lg bg-slate-700/50 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                        placeholder="搜索...">
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+                        <button class="search-engine p-1 rounded hover:bg-slate-600" data-engine="baidu" title="百度搜索">
+                            <i class="fa fa-search text-slate-300"></i>
+                        </button>
+                        <button class="search-engine p-1 rounded hover:bg-slate-600" data-engine="google" title="谷歌搜索">
+                            <i class="fa fa-google text-slate-300"></i>
+                        </button>
+                        <button class="search-engine p-1 rounded hover:bg-slate-600" data-engine="bing" title="必应搜索">
+                            <i class="fa fa-bing text-slate-300"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 配置导入区域 -->
+    <section class="max-w-6xl mx-auto mb-8 bg-slate-800/40 rounded-xl p-4 md:p-6 backdrop-blur-sm border border-slate-700/50">
+        <h2 class="text-xl font-semibold mb-4 flex items-center">
+            <i class="fa fa-cogs mr-2 text-primary"></i>配置管理
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 本地文件导入 -->
+            <div class="bg-slate-900/30 p-4 rounded-lg">
+                <h3 class="font-medium mb-2 flex items-center">
+                    <i class="fa fa-file-text-o mr-2 text-secondary"></i>导入本地配置
+                </h3>
+                <label class="flex items-center justify-center w-full">
+                    <div class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer bg-slate-800/20 hover:bg-slate-800/40 transition-colors">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <i class="fa fa-cloud-upload text-3xl text-slate-400 mb-2"></i>
+                            <p class="mb-2 text-sm text-slate-400"><span class="font-semibold">点击上传</span> 或拖放 config.json 文件</p>
+                            <p class="text-xs text-slate-500">支持 JSON 格式</p>
+                        </div>
+                        <input id="file-upload" type="file" accept=".json" class="hidden" />
+                    </div>
+                </label>
+            </div>
+
+            <!-- 在线URL导入 -->
+            <div class="bg-slate-900/30 p-4 rounded-lg">
+                <h3 class="font-medium mb-2 flex items-center">
+                    <i class="fa fa-link mr-2 text-secondary"></i>通过URL导入
+                </h3>
+                <div class="flex gap-2">
+                    <input type="text" id="config-url" placeholder="输入配置文件URL" 
+                        class="flex-1 px-3 py-2 rounded-lg bg-slate-700/50 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-primary">
+                    <button id="load-url" class="px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg transition-colors">
+                        <i class="fa fa-download mr-1"></i>加载
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 flex gap-2 flex-wrap">
+            <button id="export-config" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">
+                <i class="fa fa-download mr-1"></i>导出当前配置
+            </button>
+            <button id="download-example" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">
+                <i class="fa fa-file-code-o mr-1"></i>下载示例配置
+            </button>
+            <button id="clear-data" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                <i class="fa fa-trash mr-1"></i>清空数据
+            </button>
+        </div>
+    </section>
+
+    <!-- 导入预览模态框 -->
+    <div id="import-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-slate-800 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto m-4">
+            <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="text-lg font-semibold">配置预览</h3>
+                <button id="close-modal" class="p-1 hover:bg-slate-700 rounded-full">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="p-4">
+                <div id="preview-content" class="space-y-4"></div>
+            </div>
+            <div class="p-4 border-t border-slate-700 flex justify-end gap-2">
+                <button id="cancel-import" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">
+                    取消
+                </button>
+                <button id="confirm-import" class="px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg transition-colors">
+                    确认导入
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主内容：网站分类 -->
+    <main id="categories-container" class="max-w-6xl mx-auto space-y-6">
+        <!-- 初始提示 -->
+        <div id="empty-state" class="text-center py-16">
+            <i class="fa fa-folder-open-o text-5xl text-slate-500 mb-4"></i>
+            <p class="text-slate-400">还没有数据，请导入配置文件或添加网站</p>
+        </div>
+
+        <!-- 分类内容将通过JS动态生成 -->
+    </main>
+
+    <script>
+        // 全局变量
+        let currentConfig = [];
+        let isDarkMode = true;
+
+        // 显示当前时间
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // 搜索功能
+        document.querySelectorAll('.search-engine').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const engine = btn.dataset.engine;
+                const query = document.getElementById('search-input').value.trim();
+                if (!query) return;
+                
+                let url = '';
+                switch(engine) {
+                    case 'baidu':
+                        url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`;
+                        break;
+                    case 'google':
+                        url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+                        break;
+                    case 'bing':
+                        url = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+                        break;
+                }
+                window.open(url, '_blank');
+            });
+        });
+
+        // 按回车默认百度搜索
+        document.getElementById('search-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.querySelector('[data-engine="baidu"]').click();
+            }
+        });
+
+        // 主题切换
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            const body = document.body;
+            const icon = document.querySelector('#theme-toggle i');
+            
+            if (isDarkMode) {
+                body.classList.remove('bg-gradient-light', 'text-slate-800');
+                body.classList.add('bg-gradient-dark', 'text-white');
+                icon.classList.remove('fa-sun-o');
+                icon.classList.add('fa-moon-o');
+            } else {
+                body.classList.remove('bg-gradient-dark', 'text-white');
+                body.classList.add('bg-gradient-light', 'text-slate-800');
+                icon.classList.remove('fa-moon-o');
+                icon.classList.add('fa-sun-o');
+            }
+            
+            // 更新卡片样式
+            updateCardStyles();
+        });
+
+        // 更新卡片样式以适应主题
+        function updateCardStyles() {
+            const cards = document.querySelectorAll('.category-card');
+            const cardClass = isDarkMode ? 'bg-slate-800/40' : 'bg-white/70';
+            const hoverClass = isDarkMode ? 'hover:bg-slate-700/60' : 'hover:bg-white';
+            
+            cards.forEach(card => {
+                card.className = `card-hover ${cardClass} ${hoverClass} rounded-lg p-4 flex flex-col items-center text-center`;
+            });
+        }
+
+        // 渲染分类和网站
+        function renderCategories(categories) {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = '';
+            
+            // 显示空状态
+            if (!categories || categories.length === 0) {
+                container.innerHTML = `
+                    <div id="empty-state" class="text-center py-16">
+                        <i class="fa fa-folder-open-o text-5xl ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} mb-4"></i>
+                        <p class="${isDarkMode ? 'text-slate-400' : 'text-slate-500'}">还没有数据，请导入配置文件或添加网站</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 渲染每个分类
+            categories.forEach(category => {
+                const section = document.createElement('section');
+                section.className = 'mb-6';
+                
+                // 分类标题
+                section.innerHTML = `
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <i class="${category.icon || 'fa-folder'} mr-2 ${category.color || 'text-primary'}"></i>${category.name}
+                    </h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4" id="category-${category.id}">
+                        <!-- 网站卡片将在这里生成 -->
+                    </div>
+                `;
+                
+                container.appendChild(section);
+                
+                // 渲染网站卡片
+                const sitesContainer = document.getElementById(`category-${category.id}`);
+                category.sites.forEach(site => {
+                    const card = document.createElement('a');
+                    card.href = site.url;
+                    card.target = '_blank';
+                    card.className = `card-hover ${isDarkMode ? 'bg-slate-800/40 hover:bg-slate-700/60' : 'bg-white/70 hover:bg-white'} rounded-lg p-4 flex flex-col items-center text-center`;
+                    card.innerHTML = `
+                        <i class="${site.icon || 'fa-globe'} text-2xl mb-2 ${site.color || 'text-primary'}"></i>
+                        <span class="truncate max-w-full">${site.name}</span>
+                    `;
+                    sitesContainer.appendChild(card);
+                });
+            });
+        }
+
+        // 处理文件上传
+        document.getElementById('file-upload').addEventListener('change', handleFileUpload);
+        
+        // 拖放功能
+        const dropArea = document.querySelector('label[for="file-upload"] .border-dashed');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            dropArea.classList.add('border-primary');
+            dropArea.classList.add(isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100');
+        }
+        
+        function unhighlight() {
+            dropArea.classList.remove('border-primary');
+            dropArea.classList.remove(isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100');
+        }
+        
+        dropArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            if (file) {
+                readFile(file);
+            }
+        }
+        
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                readFile(file);
+            }
+        }
+        
+        function readFile(file) {
+            if (!file.name.endsWith('.json')) {
+                alert('请上传JSON格式的文件');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    showImportPreview(config);
+                } catch (error) {
+                    alert('JSON格式错误：' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 通过URL加载配置
+        document.getElementById('load-url').addEventListener('click', async () => {
+            const url = document.getElementById('config-url').value.trim();
+            if (!url) {
+                alert('请输入配置文件URL');
+                return;
+            }
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP错误：${response.status}`);
+                }
+                const config = await response.json();
+                showImportPreview(config);
+            } catch (error) {
+                alert('加载配置失败：' + error.message);
+            }
+        });
+
+        // 显示导入预览
+        let pendingImportConfig = null;
+        function showImportPreview(config) {
+            // 验证配置格式
+            if (!Array.isArray(config) || config.some(item => !item.name || !item.sites || !Array.isArray(item.sites))) {
+                alert('配置格式不正确，请参考示例配置');
+                return;
+            }
+            
+            pendingImportConfig = config;
+            const previewContainer = document.getElementById('preview-content');
+            previewContainer.innerHTML = '';
+            
+            // 生成预览内容
+            config.forEach(category => {
+                const categoryEl = document.createElement('div');
+                categoryEl.className = 'p-3 bg-slate-700/30 rounded-lg';
+                categoryEl.innerHTML = `
+                    <h4 class="font-medium mb-2">${category.name} <span class="text-sm text-slate-400">(${category.sites.length}个网站)</span></h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        ${category.sites.map(site => `
+                            <div class="text-sm truncate">${site.name}</div>
+                        `).join('')}
+                    </div>
+                `;
+                previewContainer.appendChild(categoryEl);
+            });
+            
+            // 显示模态框
+            document.getElementById('import-modal').classList.remove('hidden');
+        }
+
+        // 关闭模态框
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('import-modal').classList.add('hidden');
+            pendingImportConfig = null;
+        });
+
+        document.getElementById('cancel-import').addEventListener('click', () => {
+            document.getElementById('import-modal').classList.add('hidden');
+            pendingImportConfig = null;
+        });
+
+        // 确认导入
+        document.getElementById('confirm-import').addEventListener('click', () => {
+            if (pendingImportConfig) {
+                currentConfig = pendingImportConfig;
+                // 保存到本地存储
+                localStorage.setItem('navigationConfig', JSON.stringify(currentConfig));
+                // 重新渲染
+                renderCategories(currentConfig);
+                // 关闭模态框
+                document.getElementById('import-modal').classList.add('hidden');
+                pendingImportConfig = null;
+            }
+        });
+
+        // 导出当前配置
+        document.getElementById('export-config').addEventListener('click', () => {
+            if (currentConfig.length === 0) {
+                alert('没有可导出的配置数据');
+                return;
+            }
+            
+            const jsonStr = JSON.stringify(currentConfig, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'navigation-config.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // 下载示例配置
+        document.getElementById('download-example').addEventListener('click', () => {
+            const exampleConfig = [
+                {
+                    "id": "work",
+                    "name": "工作",
+                    "icon": "fa-briefcase",
+                    "color": "text-primary",
+                    "sites": [
+                        {
+                            "name": "Gmail",
+                            "url": "https://mail.google.com",
+                            "icon": "fa-envelope",
+                            "color": "text-primary"
+                        },
+                        {
+                            "name": "文档",
+                            "url": "https://docs.google.com",
+                            "icon": "fa-file-text",
+                            "color": "text-primary"
+                        },
+                        {
+                            "name": "会议",
+                            "url": "https://meet.google.com",
+                            "icon": "fa-video-camera",
+                            "color": "text-primary"
+                        }
+                    ]
+                },
+                {
+                    "id": "study",
+                    "name": "学习",
+                    "icon": "fa-book",
+                    "color": "text-secondary",
+                    "sites": [
+                        {
+                            "name": "GitHub",
+                            "url": "https://github.com",
+                            "icon": "fa-github",
+                            "color": "text-secondary"
+                        },
+                        {
+                            "name": "StackOverflow",
+                            "url": "https://stackoverflow.com",
+                            "icon": "fa-stack-overflow",
+                            "color": "text-secondary"
+                        },
+                        {
+                            "name": "掘金",
+                            "url": "https://juejin.cn",
+                            "icon": "fa-code",
+                            "color": "text-secondary"
+                        }
+                    ]
+                }
+            ];
+            
+            const jsonStr = JSON.stringify(exampleConfig, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'example-config.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // 清空数据
+        document.getElementById('clear-data').addEventListener('click', () => {
+            if (confirm('确定要清空所有数据吗？')) {
+                currentConfig = [];
+                localStorage.removeItem('navigationConfig');
+                renderCategories(currentConfig);
+            }
+        });
+
+        // 页面加载时从本地存储读取配置
+        window.addEventListener('load', () => {
+            const savedConfig = localStorage.getItem('navigationConfig');
+            if (savedConfig) {
+                try {
+                    currentConfig = JSON.parse(savedConfig);
+                    renderCategories(currentConfig);
+                } catch (error) {
+                    console.error('加载保存的配置失败', error);
+                    localStorage.removeItem('navigationConfig');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
