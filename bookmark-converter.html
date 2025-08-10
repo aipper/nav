@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome书签转导航配置工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="bg-primary text-white p-6">
+            <h1 class="text-2xl font-bold flex items-center">
+                <i class="fa fa-exchange mr-2"></i>Chrome书签转导航配置工具
+            </h1>
+            <p class="mt-2 opacity-90">将Chrome导出的HTML书签转换为个人导航页面支持的JSON配置格式</p>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <div class="space-y-4">
+                <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                    <i class="fa fa-info-circle mr-2 text-primary"></i>使用说明
+                </h2>
+                <ol class="list-decimal list-inside space-y-2 text-gray-600 pl-4">
+                    <li>在Chrome浏览器中，导出书签为HTML格式（菜单 → 书签 → 书签管理器 → 导出书签）</li>
+                    <li>点击下方按钮上传Chrome导出的HTML书签文件</li>
+                    <li>工具会自动将HTML转换为JSON配置格式</li>
+                    <li>复制或下载转换后的JSON配置</li>
+                    <li>在个人导航页面中导入转换后的JSON配置</li>
+                </ol>
+            </div>
+
+            <div class="space-y-4">
+                <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                    <i class="fa fa-upload mr-2 text-primary"></i>上传Chrome书签文件
+                </h2>
+                <label class="flex items-center justify-center w-full">
+                    <div class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                            <i class="fa fa-file-text-o text-3xl text-gray-400 mb-2"></i>
+                            <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">点击上传</span> 或拖放 HTML 书签文件</p>
+                            <p class="text-xs text-gray-500">支持 HTML 格式</p>
+                        </div>
+                        <input id="bookmark-file" type="file" accept=".html" class="hidden" />
+                    </div>
+                </label>
+                <div id="file-info" class="hidden p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p class="text-green-700 flex items-center"><i class="fa fa-check-circle mr-2"></i><span id="file-name"></span></p>
+                </div>
+            </div>
+
+            <div class="space-y-4" id="conversion-result">
+                <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                    <i class="fa fa-code mr-2 text-primary"></i>转换结果
+                </h2>
+                <div class="relative mb-4">
+                    <div id="no-output-message" class="absolute inset-0 flex items-center justify-center text-gray-400 z-10 bg-white/80 rounded-lg">
+                        <p class="text-center px-4"><i class="fa fa-arrow-up mr-2"></i>请先上传Chrome书签HTML文件</p>
+                    </div>
+                    <textarea id="json-output" class="w-full h-64 p-4 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" readonly placeholder="转换后的JSON配置将显示在这里..."></textarea>
+                    <div class="absolute top-2 right-2 flex space-x-2">
+                        <button id="copy-btn" class="p-2 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors flex items-center shadow-md">
+                            <i class="fa fa-copy mr-1"></i> 复制
+                        </button>
+                        <button id="download-btn" class="p-2 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition-colors flex items-center shadow-md">
+                            <i class="fa fa-download mr-1"></i> 下载
+                        </button>
+                    </div>
+                </div>
+                <div id="copy-success" class="hidden p-3 bg-green-100 border border-green-200 rounded-lg mb-4">
+                    <p class="text-green-700 flex items-center"><i class="fa fa-check-circle mr-2"></i>已成功复制到剪贴板！</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 文件上传处理
+        const bookmarkFile = document.getElementById('bookmark-file');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const conversionResult = document.getElementById('conversion-result');
+        const jsonOutput = document.getElementById('json-output');
+        const copyBtn = document.getElementById('copy-btn');
+        const downloadBtn = document.getElementById('download-btn');
+
+        bookmarkFile.addEventListener('change', handleFileUpload);
+
+        // 拖放功能 - 修复作用域问题
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropArea = document.querySelector('label .border-dashed');
+            if (dropArea) {
+                // 定义拖放相关函数
+                function preventDefaults(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+
+                function highlight() {
+                    dropArea.classList.add('border-primary');
+                    dropArea.classList.add('bg-gray-100');
+                }
+
+                function unhighlight() {
+                    dropArea.classList.remove('border-primary');
+                    dropArea.classList.remove('bg-gray-100');
+                }
+
+                // 添加事件监听器
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, preventDefaults, false);
+                });
+
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, highlight, false);
+                });
+
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, unhighlight, false);
+                });
+
+                dropArea.addEventListener('drop', handleDrop, false);
+            } else {
+                console.warn('未找到拖放区域元素');
+            }
+        });
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            if (!file.name.endsWith('.html')) {
+                alert('请上传HTML格式的文件');
+                return;
+            }
+
+            // 显示文件信息
+            fileName.textContent = `已选择: ${file.name}`;
+            fileInfo.classList.remove('hidden');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const htmlContent = e.target.result;
+                    const jsonConfig = convertBookmarkHtmlToJson(htmlContent);
+                    jsonOutput.value = JSON.stringify(jsonConfig, null, 2);
+            document.getElementById('no-output-message').classList.add('hidden');
+                } catch (error) {
+                    alert('转换失败: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // 复制到剪贴板
+        copyBtn.addEventListener('click', () => {
+            jsonOutput.select();
+            document.execCommand('copy');
+            
+            // 显示复制成功提示
+            const copySuccess = document.getElementById('copy-success');
+            copySuccess.classList.remove('hidden');
+            
+            // 3秒后隐藏提示
+            setTimeout(() => {
+                copySuccess.classList.add('hidden');
+            }, 3000);
+        });
+
+        // 下载JSON文件
+        downloadBtn.addEventListener('click', () => {
+            const jsonStr = jsonOutput.value;
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'chrome-bookmarks-config.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // 将Chrome书签HTML转换为导航配置JSON
+        function convertBookmarkHtmlToJson(htmlContent) {
+        // 创建一个临时DOM元素来解析HTML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
+
+        // 添加调试信息
+        console.log('开始解析书签HTML...');
+
+        // 查找所有书签文件夹和链接
+        const dlElements = doc.querySelectorAll('dl');
+        console.log(`找到 ${dlElements.length} 个 DL 元素`);
+
+        // 最外层DL通常包含所有书签
+        if (dlElements.length === 0) {
+            console.error('未找到DL元素，不是有效的书签HTML文件');
+            throw new Error('未能从HTML文件中提取书签数据，请确保上传的是有效的Chrome书签HTML文件');
+        }
+
+        // 从最外层DL开始解析
+        const result = [];
+        const rootDl = dlElements[0];
+
+        // 递归解析函数
+        function parseDl(dl, parentFolder = null) {
+            const items = dl.children;
+            let currentFolder = null;
+            let currentLinks = [];
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+
+                if (item.tagName === 'DT') {
+                    // 检查是否是文件夹
+                    const h3 = item.querySelector('h3');
+                    if (h3) {
+                        // 如果当前有未处理的文件夹，先添加到结果
+                        if (currentFolder && currentLinks.length > 0) {
+                            addFolder(currentFolder, currentLinks, parentFolder);
+                            currentLinks = [];
+                        }
+
+                        // 新文件夹
+                        currentFolder = h3.textContent.trim();
+                        console.log(`找到文件夹: ${currentFolder}`);
+
+                        // 查找下一个DD元素，可能包含子文件夹或链接
+                        if (i + 1 < items.length && items[i + 1].tagName === 'DD') {
+                            const dd = items[i + 1];
+                            const subDl = dd.querySelector('dl');
+                            if (subDl) {
+                                // 递归处理子文件夹
+                                parseDl(subDl, currentFolder);
+                            } else {
+                                // 提取当前文件夹下的链接
+                                const links = dd.querySelectorAll('a');
+                                console.log(`  在文件夹 ${currentFolder} 中找到 ${links.length} 个链接`);
+
+                                links.forEach(link => {
+                                    if (link.href && link.href !== 'about:blank' && link.textContent.trim()) {
+                                        currentLinks.push({
+                                            name: link.textContent.trim(),
+                                            url: link.href,
+                                            icon: 'fa-globe',
+                                            color: 'text-primary'
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    } else {
+                        // 检查是否是链接
+                        const a = item.querySelector('a');
+                        if (a && a.href && a.href !== 'about:blank' && a.textContent.trim()) {
+                            if (parentFolder) {
+                                // 如果有父文件夹，添加到父文件夹
+                                addLinkToFolder(a, parentFolder);
+                            } else {
+                                // 否则添加到根目录
+                                currentLinks.push({
+                                    name: a.textContent.trim(),
+                                    url: a.href,
+                                    icon: 'fa-globe',
+                                    color: 'text-primary'
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 处理最后一个文件夹
+            if (currentFolder && currentLinks.length > 0) {
+                addFolder(currentFolder, currentLinks, parentFolder);
+            }
+
+            // 如果没有文件夹但有链接，创建一个默认文件夹
+            if (!currentFolder && currentLinks.length > 0) {
+                console.log('没有找到文件夹，将所有链接放入默认文件夹');
+                addFolder('Chrome书签', currentLinks, null);
+            }
+        }
+
+        // 添加文件夹到结果
+        function addFolder(folderName, links, parentFolder) {
+            const folderId = 'folder-' + Math.random().toString(36).substr(2, 9);
+            const folderObj = {
+                id: folderId,
+                name: folderName,
+                icon: 'fa-folder',
+                color: 'text-primary',
+                sites: links
+            };
+
+            if (parentFolder) {
+                // 查找父文件夹并添加到其中
+                const parent = findFolderByName(parentFolder);
+                if (parent) {
+                    if (!parent.children) {
+                        parent.children = [];
+                    }
+                    parent.children.push(folderObj);
+                } else {
+                    result.push(folderObj);
+                }
+            } else {
+                result.push(folderObj);
+            }
+        }
+
+        // 添加链接到指定文件夹
+        function addLinkToFolder(link, folderName) {
+            const folder = findFolderByName(folderName);
+            if (folder) {
+                folder.sites.push({
+                    name: link.textContent.trim(),
+                    url: link.href,
+                    icon: 'fa-globe',
+                    color: 'text-primary'
+                });
+            }
+        }
+
+        // 根据名称查找文件夹
+        function findFolderByName(name) {
+            for (const folder of result) {
+                if (folder.name === name) {
+                    return folder;
+                }
+                if (folder.children) {
+                    const found = findFolderByNameInChildren(folder.children, name);
+                    if (found) {
+                        return found;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // 在子文件夹中查找
+        function findFolderByNameInChildren(children, name) {
+            for (const child of children) {
+                if (child.name === name) {
+                    return child;
+                }
+                if (child.children) {
+                    const found = findFolderByNameInChildren(child.children, name);
+                    if (found) {
+                        return found;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // 开始解析
+        parseDl(rootDl);
+
+        // 添加错误处理，如果结果为空
+        if (result.length === 0) {
+            console.error('转换失败: 未找到任何书签数据');
+            throw new Error('未能从HTML文件中提取书签数据，请确保上传的是有效的Chrome书签HTML文件');
+        }
+
+        const totalLinks = result.reduce((total, folder) => {
+            let count = folder.sites ? folder.sites.length : 0;
+            if (folder.children) {
+                folder.children.forEach(child => {
+                    count += child.sites ? child.sites.length : 0;
+                });
+            }
+            return total + count;
+        }, 0);
+
+        console.log(`成功转换 ${result.length} 个文件夹和 ${totalLinks} 个链接`);
+        return result;
+    }
+    </script>
+</body>
+</html>

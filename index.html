@@ -157,6 +157,7 @@
         // 全局变量
         let currentConfig = [];
         let isDarkMode = true;
+        let pendingImportConfig = null;
 
         // 显示当前时间
         function updateClock() {
@@ -174,206 +175,439 @@
         updateClock();
 
         // 搜索功能
-        document.querySelectorAll('.search-engine').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const engine = btn.dataset.engine;
-                const query = document.getElementById('search-input').value.trim();
-                if (!query) return;
-                
-                let url = '';
-                switch(engine) {
-                    case 'baidu':
-                        url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`;
-                        break;
-                    case 'google':
-                        url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-                        break;
-                    case 'bing':
-                        url = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
-                        break;
-                }
-                window.open(url, '_blank');
-            });
-        });
-
-        // 按回车默认百度搜索
-        document.getElementById('search-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                document.querySelector('[data-engine="baidu"]').click();
-            }
-        });
-
-        // 主题切换
-        document.getElementById('theme-toggle').addEventListener('click', () => {
-            isDarkMode = !isDarkMode;
-            const body = document.body;
-            const icon = document.querySelector('#theme-toggle i');
-            
-            if (isDarkMode) {
-                body.classList.remove('bg-gradient-light', 'text-slate-800');
-                body.classList.add('bg-gradient-dark', 'text-white');
-                icon.classList.remove('fa-sun-o');
-                icon.classList.add('fa-moon-o');
-            } else {
-                body.classList.remove('bg-gradient-dark', 'text-white');
-                body.classList.add('bg-gradient-light', 'text-slate-800');
-                icon.classList.remove('fa-moon-o');
-                icon.classList.add('fa-sun-o');
-            }
-            
-            // 更新卡片样式
-            updateCardStyles();
-        });
-
-        // 更新卡片样式以适应主题
-        function updateCardStyles() {
-            const cards = document.querySelectorAll('.category-card');
-            const cardClass = isDarkMode ? 'bg-slate-800/40' : 'bg-white/70';
-            const hoverClass = isDarkMode ? 'hover:bg-slate-700/60' : 'hover:bg-white';
-            
-            cards.forEach(card => {
-                card.className = `card-hover ${cardClass} ${hoverClass} rounded-lg p-4 flex flex-col items-center text-center`;
-            });
-        }
-
-        // 渲染分类和网站
-        function renderCategories(categories) {
-            const container = document.getElementById('categories-container');
-            container.innerHTML = '';
-            
-            // 显示空状态
-            if (!categories || categories.length === 0) {
-                container.innerHTML = `
-                    <div id="empty-state" class="text-center py-16">
-                        <i class="fa fa-folder-open-o text-5xl ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} mb-4"></i>
-                        <p class="${isDarkMode ? 'text-slate-400' : 'text-slate-500'}">还没有数据，请导入配置文件或添加网站</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            // 渲染每个分类
-            categories.forEach(category => {
-                const section = document.createElement('section');
-                section.className = 'mb-6';
-                
-                // 分类标题
-                section.innerHTML = `
-                    <h2 class="text-xl font-semibold mb-4 flex items-center">
-                        <i class="${category.icon || 'fa-folder'} mr-2 ${category.color || 'text-primary'}"></i>${category.name}
-                    </h2>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4" id="category-${category.id}">
-                        <!-- 网站卡片将在这里生成 -->
-                    </div>
-                `;
-                
-                container.appendChild(section);
-                
-                // 渲染网站卡片
-                const sitesContainer = document.getElementById(`category-${category.id}`);
-                category.sites.forEach(site => {
-                    const card = document.createElement('a');
-                    card.href = site.url;
-                    card.target = '_blank';
-                    card.className = `card-hover ${isDarkMode ? 'bg-slate-800/40 hover:bg-slate-700/60' : 'bg-white/70 hover:bg-white'} rounded-lg p-4 flex flex-col items-center text-center`;
-                    card.innerHTML = `
-                        <i class="${site.icon || 'fa-globe'} text-2xl mb-2 ${site.color || 'text-primary'}"></i>
-                        <span class="truncate max-w-full">${site.name}</span>
-                    `;
-                    sitesContainer.appendChild(card);
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.search-engine').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const engine = btn.dataset.engine;
+                    const query = document.getElementById('search-input').value.trim();
+                    if (!query) return;
+                    
+                    let url = '';
+                    switch(engine) {
+                        case 'baidu':
+                            url = `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`;
+                            break;
+                        case 'google':
+                            url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+                            break;
+                        case 'bing':
+                            url = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+                            break;
+                    }
+                    window.open(url, '_blank');
                 });
             });
-        }
 
-        // 处理文件上传
-        document.getElementById('file-upload').addEventListener('change', handleFileUpload);
-        
-        // 拖放功能
-        const dropArea = document.querySelector('label[for="file-upload"] .border-dashed');
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, preventDefaults, false);
-        });
-        
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropArea.addEventListener(eventName, highlight, false);
-        });
-        
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, unhighlight, false);
-        });
-        
-        function highlight() {
-            dropArea.classList.add('border-primary');
-            dropArea.classList.add(isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100');
-        }
-        
-        function unhighlight() {
-            dropArea.classList.remove('border-primary');
-            dropArea.classList.remove(isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100');
-        }
-        
-        dropArea.addEventListener('drop', handleDrop, false);
-        
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const file = dt.files[0];
-            if (file) {
-                readFile(file);
+            // 按回车默认百度搜索
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        const baiduBtn = document.querySelector('[data-engine="baidu"]');
+                        if (baiduBtn) {
+                            baiduBtn.click();
+                        }
+                    }
+                });
             }
-        }
-        
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (file) {
-                readFile(file);
+        });
+
+        // 主题切换和其他事件监听器
+        document.addEventListener('DOMContentLoaded', () => {
+            // 主题切换
+            const themeToggle = document.getElementById('theme-toggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    isDarkMode = !isDarkMode;
+                    const body = document.body;
+                    const icon = document.querySelector('#theme-toggle i');
+                    
+                    if (isDarkMode) {
+                        body.classList.remove('bg-gradient-light', 'text-slate-800');
+                        body.classList.add('bg-gradient-dark', 'text-white');
+                        icon.classList.remove('fa-sun-o');
+                        icon.classList.add('fa-moon-o');
+                    } else {
+                        body.classList.remove('bg-gradient-dark', 'text-white');
+                        body.classList.add('bg-gradient-light', 'text-slate-800');
+                        icon.classList.remove('fa-moon-o');
+                        icon.classList.add('fa-sun-o');
+                    }
+                    
+                    // 更新卡片样式
+                    updateCardStyles();
+                });
             }
-        }
-        
-        function readFile(file) {
-            if (!file.name.endsWith('.json')) {
-                alert('请上传JSON格式的文件');
-                return;
+
+            // 更新卡片样式以适应主题
+            function updateCardStyles() {
+                const cards = document.querySelectorAll('.category-card');
+                const cardClass = isDarkMode ? 'bg-slate-800/40' : 'bg-white/70';
+                const hoverClass = isDarkMode ? 'hover:bg-slate-700/60' : 'hover:bg-white';
+                
+                cards.forEach(card => {
+                    card.className = `card-hover ${cardClass} ${hoverClass} rounded-lg p-4 flex flex-col items-center text-center`;
+                });
+            }
+
+            // 渲染分类和网站
+            function renderCategories(categories) {
+                const container = document.getElementById('categories-container');
+                container.innerHTML = '';
+                
+                // 显示空状态
+                if (!categories || categories.length === 0) {
+                    container.innerHTML = `
+                        <div id="empty-state" class="text-center py-16">
+                            <i class="fa fa-folder-open-o text-5xl ${isDarkMode ? 'text-slate-500' : 'text-slate-400'} mb-4"></i>
+                            <p class="${isDarkMode ? 'text-slate-400' : 'text-slate-500'}">还没有数据，请导入配置文件或添加网站</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 渲染每个分类
+                categories.forEach(category => {
+                    const section = document.createElement('section');
+                    section.className = 'mb-6';
+                    
+                    // 分类标题
+                    section.innerHTML = `
+                        <h2 class="text-xl font-semibold mb-4 flex items-center">
+                            <i class="${category.icon || 'fa-folder'} mr-2 ${category.color || 'text-primary'}"></i>${category.name}
+                        </h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4" id="category-${category.id}">
+                            <!-- 网站卡片将在这里生成 -->
+                        </div>
+                    `;
+                    
+                    container.appendChild(section);
+                    
+                    // 渲染网站卡片
+                    const sitesContainer = document.getElementById(`category-${category.id}`);
+                    category.sites.forEach(site => {
+                        const card = document.createElement('a');
+                        card.href = site.url;
+                        card.target = '_blank';
+                        card.className = `card-hover ${isDarkMode ? 'bg-slate-800/40 hover:bg-slate-700/60' : 'bg-white/70 hover:bg-white'} rounded-lg p-4 flex flex-col items-center text-center`;
+                        card.innerHTML = `
+                            <i class="${site.icon || 'fa-globe'} text-2xl mb-2 ${site.color || 'text-primary'}"></i>
+                            <span class="truncate max-w-full">${site.name}</span>
+                        `;
+                        sitesContainer.appendChild(card);
+                    });
+                });
+            }
+
+            // 处理文件上传
+            const fileUpload = document.getElementById('file-upload');
+            if (fileUpload) {
+                fileUpload.addEventListener('change', handleFileUpload);
             }
             
-            const reader = new FileReader();
-            reader.onload = function(e) {
+            // 拖放功能
+            const dropArea = document.querySelector('label[for="file-upload"] .border-dashed');
+            if (dropArea) {
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, preventDefaults, false);
+                });
+            }
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            if (dropArea) {
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, highlight, false);
+                });
+            }
+            
+            if (dropArea) {
+                ['dragleave', 'drop'].forEach(eventName => {
+                    dropArea.addEventListener(eventName, unhighlight, false);
+                });
+            }
+            
+            function highlight() {
+                if (dropArea) {
+                    dropArea.classList.add('border-primary');
+                    dropArea.classList.add(isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100');
+                }
+            }
+            
+            function unhighlight() {
+                if (dropArea) {
+                    dropArea.classList.remove('border-primary');
+                    dropArea.classList.remove(isDarkMode ? 'bg-slate-800/60' : 'bg-slate-100');
+                }
+            }
+            
+            if (dropArea) {
+                dropArea.addEventListener('drop', handleDrop, false);
+            }
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const file = dt.files[0];
+                if (file) {
+                    readFile(file);
+                }
+            }
+            
+            function handleFileUpload(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    readFile(file);
+                }
+            }
+            
+            function readFile(file) {
+                if (!file.name.endsWith('.json')) {
+                    alert('请上传JSON格式的文件');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const config = JSON.parse(e.target.result);
+                        showImportPreview(config);
+                    } catch (error) {
+                        alert('JSON格式错误：' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            // 通过URL加载配置
+            const loadUrlBtn = document.getElementById('load-url');
+            if (loadUrlBtn) {
+                loadUrlBtn.addEventListener('click', async () => {
+                    const urlInput = document.getElementById('config-url');
+                    if (!urlInput) return;
+                    
+                    const url = urlInput.value.trim();
+                    if (!url) {
+                        alert('请输入配置文件URL');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP错误：${response.status}`);
+                        }
+                        const config = await response.json();
+                        showImportPreview(config);
+                    } catch (error) {
+                        alert('加载配置失败：' + error.message);
+                    }
+                });
+            }
+
+            // 显示导入预览
+            function showImportPreview(config) {
+                // 验证配置格式
+                if (!Array.isArray(config) || config.some(item => !item.name || !item.sites || !Array.isArray(item.sites))) {
+                    alert('配置格式不正确，请参考示例配置');
+                    return;
+                }
+                
+                pendingImportConfig = config;
+                const previewContainer = document.getElementById('preview-content');
+                if (!previewContainer) return;
+                
+                previewContainer.innerHTML = '';
+                
+                // 生成预览内容
+                config.forEach(category => {
+                    const categoryEl = document.createElement('div');
+                    categoryEl.className = 'p-3 bg-slate-700/30 rounded-lg';
+                    categoryEl.innerHTML = `
+                        <h4 class="font-medium mb-2">${category.name} <span class="text-sm text-slate-400">(${category.sites.length}个网站)</span></h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            ${category.sites.map(site => `
+                                <div class="text-sm truncate">${site.name}</div>
+                            `).join('')}
+                        </div>
+                    `;
+                    previewContainer.appendChild(categoryEl);
+                });
+                
+                // 显示模态框
+                const importModal = document.getElementById('import-modal');
+                if (importModal) {
+                    importModal.classList.remove('hidden');
+                }
+            }
+
+            // 关闭模态框
+            const closeModalBtn = document.getElementById('close-modal');
+            if (closeModalBtn) {
+                closeModalBtn.addEventListener('click', () => {
+                    const importModal = document.getElementById('import-modal');
+                    if (importModal) {
+                        importModal.classList.add('hidden');
+                    }
+                    pendingImportConfig = null;
+                });
+            }
+
+            const cancelImportBtn = document.getElementById('cancel-import');
+            if (cancelImportBtn) {
+                cancelImportBtn.addEventListener('click', () => {
+                    const importModal = document.getElementById('import-modal');
+                    if (importModal) {
+                        importModal.classList.add('hidden');
+                    }
+                    pendingImportConfig = null;
+                });
+            }
+
+            // 确认导入
+            const confirmImportBtn = document.getElementById('confirm-import');
+            if (confirmImportBtn) {
+                confirmImportBtn.addEventListener('click', () => {
+                    if (pendingImportConfig) {
+                        currentConfig = pendingImportConfig;
+                        // 保存到本地存储
+                        localStorage.setItem('navigationConfig', JSON.stringify(currentConfig));
+                        // 重新渲染
+                        renderCategories(currentConfig);
+                        // 关闭模态框
+                        const importModal = document.getElementById('import-modal');
+                        if (importModal) {
+                            importModal.classList.add('hidden');
+                        }
+                        pendingImportConfig = null;
+                    }
+                });
+            }
+
+            // 导出当前配置
+            const exportConfigBtn = document.getElementById('export-config');
+            if (exportConfigBtn) {
+                exportConfigBtn.addEventListener('click', () => {
+                    if (currentConfig.length === 0) {
+                        alert('没有可导出的配置数据');
+                        return;
+                    }
+                    
+                    const jsonStr = JSON.stringify(currentConfig, null, 2);
+                    const blob = new Blob([jsonStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'navigation-config.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                });
+            }
+
+            // 下载示例配置
+            const downloadExampleBtn = document.getElementById('download-example');
+            if (downloadExampleBtn) {
+                downloadExampleBtn.addEventListener('click', () => {
+                    const exampleConfig = [
+                        {
+                            "id": "work",
+                            "name": "工作",
+                            "icon": "fa-briefcase",
+                            "color": "text-primary",
+                            "sites": [
+                                {
+                                    "name": "Gmail",
+                                    "url": "https://mail.google.com",
+                                    "icon": "fa-envelope",
+                                    "color": "text-primary"
+                                },
+                                {
+                                    "name": "文档",
+                                    "url": "https://docs.google.com",
+                                    "icon": "fa-file-text",
+                                    "color": "text-primary"
+                                },
+                                {
+                                    "name": "会议",
+                                    "url": "https://meet.google.com",
+                                    "icon": "fa-video-camera",
+                                    "color": "text-primary"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "study",
+                            "name": "学习",
+                            "icon": "fa-book",
+                            "color": "text-secondary",
+                            "sites": [
+                                {
+                                    "name": "GitHub",
+                                    "url": "https://github.com",
+                                    "icon": "fa-github",
+                                    "color": "text-secondary"
+                                },
+                                {
+                                    "name": "StackOverflow",
+                                    "url": "https://stackoverflow.com",
+                                    "icon": "fa-stack-overflow",
+                                    "color": "text-secondary"
+                                },
+                                {
+                                    "name": "掘金",
+                                    "url": "https://juejin.cn",
+                                    "icon": "fa-code",
+                                    "color": "text-secondary"
+                                }
+                            ]
+                        }
+                    ];
+                    
+                    const jsonStr = JSON.stringify(exampleConfig, null, 2);
+                    const blob = new Blob([jsonStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'example-config.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                });
+            }
+
+            // 清空数据
+            const clearDataBtn = document.getElementById('clear-data');
+            if (clearDataBtn) {
+                clearDataBtn.addEventListener('click', () => {
+                    if (confirm('确定要清空所有数据吗？')) {
+                        currentConfig = [];
+                        localStorage.removeItem('navigationConfig');
+                        renderCategories(currentConfig);
+                    }
+                });
+            }
+
+            // 页面加载时从本地存储读取配置
+            const savedConfig = localStorage.getItem('navigationConfig');
+            if (savedConfig) {
                 try {
-                    const config = JSON.parse(e.target.result);
-                    showImportPreview(config);
+                    currentConfig = JSON.parse(savedConfig);
+                    renderCategories(currentConfig);
                 } catch (error) {
-                    alert('JSON格式错误：' + error.message);
+                    console.error('加载保存的配置失败', error);
+                    localStorage.removeItem('navigationConfig');
                 }
-            };
-            reader.readAsText(file);
-        }
-
-        // 通过URL加载配置
-        document.getElementById('load-url').addEventListener('click', async () => {
-            const url = document.getElementById('config-url').value.trim();
-            if (!url) {
-                alert('请输入配置文件URL');
-                return;
-            }
-            
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP错误：${response.status}`);
-                }
-                const config = await response.json();
-                showImportPreview(config);
-            } catch (error) {
-                alert('加载配置失败：' + error.message);
             }
         });
 
         // 显示导入预览
-        let pendingImportConfig = null;
         function showImportPreview(config) {
             // 验证配置格式
             if (!Array.isArray(config) || config.some(item => !item.name || !item.sites || !Array.isArray(item.sites))) {
