@@ -1,0 +1,26 @@
+# wrangler.toml 配置文件
+name = "personal-navigation-worker"
+main = "./worker.js"
+compatibility_date = "2025-08-10"
+
+# KV命名空间配置
+[[kv_namespaces]]
+binding = "PERSONAL_NAVIGATION"
+id = "your-kv-namespace-id"
+
+# 开发环境配置
+[dev]
+port = 8787
+[dev.vars]
+CF_GITHUB_CLIENT_ID = "your-dev-github-client-id"
+CF_GITHUB_CLIENT_SECRET = "your-dev-github-client-secret"
+CF_GITHUB_REDIRECT_URI = "http://localhost:8000/callback.html"
+
+# 生产环境配置
+[env.production]
+route = "your-domain.com/*"
+zone_id = "your-zone-id"
+[env.production.vars]
+CF_GITHUB_CLIENT_ID = "your-prod-github-client-id"
+CF_GITHUB_CLIENT_SECRET = "your-prod-github-client-secret"
+CF_GITHUB_REDIRECT_URI = "https://your-domain.com/callback.html"
