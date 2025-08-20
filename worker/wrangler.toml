@@ -3,10 +3,14 @@ name = "personal-navigation-worker"
 main = "./worker.js"
 compatibility_date = "2025-08-10"
 
-# KV命名空间配置 - 需要运行: wrangler kv:namespace create "PERSONAL_NAVIGATION"
+# KV命名空间配置
+# 1. 运行: wrangler kv:namespace create "PERSONAL_NAVIGATION"
+# 2. 运行: wrangler kv:namespace create "PERSONAL_NAVIGATION" --preview
+# 3. 将返回的ID替换到下面
 [[kv_namespaces]]
 binding = "PERSONAL_NAVIGATION"
-id = "your-kv-namespace-id"
+id = "your-kv-namespace-id"  # 替换为真实ID
+preview_id = "your-preview-kv-namespace-id"  # 替换为真实预览ID
 
 # 开发环境配置
 [dev]
