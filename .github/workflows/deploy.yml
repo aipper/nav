@@ -1,0 +1,35 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        working-directory: ./worker
+        run: npm install
+        
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: 'worker'
+          command: deploy --env production
+        env:
+          CF_GITHUB_CLIENT_ID: ${{ secrets.CF_GITHUB_CLIENT_ID }}
+          CF_GITHUB_CLIENT_SECRET: ${{ secrets.CF_GITHUB_CLIENT_SECRET }}
+          CF_GITHUB_REDIRECT_URI: ${{ secrets.CF_GITHUB_REDIRECT_URI }}
